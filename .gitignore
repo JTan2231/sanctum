@@ -1,0 +1,15 @@
+# Binary
+sanctum
+
+# SQLite database
+*.db
+
+# IDE files
+.idea/
+.vscode/
+
+# Debug files
+debug
+
+# Environment variables
+.env
