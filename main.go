@@ -3,9 +3,14 @@ package main
 import (
 	"log"
 	"net/http"
+	"fmt"
+
 	"sanctum/database"
 	"sanctum/handlers"
 	"sanctum/middleware"
+	"sanctum/utils"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -14,6 +19,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+
+	/*--------------------TESTING PC WRAPPER---------------------------------------------------*/
+
+	pc,error := utils.InitPineconeClient("sanctum-grading")
+	if error != nil {
+		log.Fatalf("Could not initialize pinecone client: %v",err)
+	}
+
+	fmt.Println(pc.AddCard(
+		utils.Flashcard{
+			Uuid: 	 uuid.New(),
+			Pattern: "What city is the Eiffel Tower in",
+			Match:   "Paris",
+		},
+	))
+	metrics, _ := pc.IndexMetrics()
+	fmt.Println(metrics)
+
+	/*-----------------------------------------------------------------------------------------*/
+	
 	http.HandleFunc("/auth", middleware.LoggingMiddleware(handlers.AuthHandler))
 	http.HandleFunc("/generate-deck", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.GenerateDeckHandler)))
 	http.HandleFunc("/prompt-suggestion", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.PromptSuggestionHandler)))

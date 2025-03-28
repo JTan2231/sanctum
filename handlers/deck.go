@@ -7,23 +7,6 @@ import (
 	"sanctum/utils"
 )
 
-type DeckRequest struct {
-	Prompt string `json:"prompt"`
-}
-
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
-type Flashcard struct {
-	Pattern string `json:"pattern"`
-	Match   string `json:"match"`
-}
-
-type FlashcardDeck struct {
-	Cards []Flashcard `json:"cards"`
-	Title string      `json:"title"`
-}
 
 const systemPrompt = `You are a helpful study aid that creates flashcard pairs in JSON format. For any topic provided, generate relevant question-answer pairs where "pattern" contains the prompt/question and "match" contains the corresponding answer. Format each flashcard as a JSON object with these exact fields:
 { "pattern": string, "match": string }
@@ -46,7 +29,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	response := ErrorResponse{Error: message}
+	response := utils.ErrorResponse{Error: message}
 	json.NewEncoder(w).Encode(response)
 
 	log.Println("ERROR: ", response)
@@ -58,7 +41,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req DeckRequest
+	var req utils.DeckRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -86,7 +69,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cards []Flashcard
+	var cards []utils.Flashcard
 	if err := json.Unmarshal([]byte(response), &cards); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error parsing flashcards")
 		return
@@ -97,7 +80,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deck := FlashcardDeck{
+	deck := utils.FlashcardDeck{
 		Cards: cards,
 		Title: req.Prompt,
 	}

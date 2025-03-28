@@ -9,26 +9,6 @@ import (
 	"os"
 )
 
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type ChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-}
-
-type choice struct {
-	Message struct {
-		Content string `json:"content"`
-	} `json:"message"`
-}
-
-type chatResponse struct {
-	Choices []choice `json:"choices"`
-}
-
 func MakeOpenAIChatRequest(messages []Message) (string, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
@@ -70,7 +50,7 @@ func MakeOpenAIChatRequest(messages []Message) (string, error) {
 		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var response chatResponse
+	var response ChatResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return "", fmt.Errorf("error parsing response: %v", err)
