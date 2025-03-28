@@ -14,9 +14,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	http.HandleFunc("/auth", handlers.AuthHandler)
-	http.HandleFunc("/generate-deck", middleware.AuthMiddleware(handlers.GenerateDeckHandler))
-	http.HandleFunc("/prompt-suggestion", middleware.AuthMiddleware(handlers.PromptSuggestionHandler))
+	http.HandleFunc("/auth", middleware.LoggingMiddleware(handlers.AuthHandler))
+	http.HandleFunc("/generate-deck", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.GenerateDeckHandler)))
+	http.HandleFunc("/prompt-suggestion", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.PromptSuggestionHandler)))
 
 	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

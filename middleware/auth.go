@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var jwtKey = []byte("your_secret_key") // In production, use environment variable
+var jwtKey = []byte("sanctum_dev")
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
