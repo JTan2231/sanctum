@@ -51,19 +51,35 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-type ChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-}
-
 type Choice struct {
 	Message struct {
 		Content string `json:"content"`
 	} `json:"message"`
 }
 
-type ChatResponse struct {
-	Choices []Choice `json:"choices"`
+type ChatRequest struct {
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
 }
+
+type ChatResponse struct {
+	Choices  []Choice `json:"choices"`
+}
+
+type EmbedRequest struct {
+	Input    string `json:"input"`
+	Model    string `json:"model"`
+}
+
+type EmbedResponse struct {
+	Data     []EmbedData `json:"data"`
+}
+
+type EmbedData struct {
+	Object    string     `json:"object"`
+	Index     int        `json:"index"`
+	Embedding []float32  `json:"embedding"`
+}
+
 
 /*-----------------------------------------------------*/

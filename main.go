@@ -19,10 +19,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-
 	/*--------------------TESTING PC WRAPPER---------------------------------------------------*/
 
-	pc,error := utils.InitPineconeClient("sanctum-grading")
+	pc,error := utils.InitPineconeClient("sanctum2")
 	if error != nil {
 		log.Fatalf("Could not initialize pinecone client: %v",err)
 	}
@@ -34,6 +33,7 @@ func main() {
 			Match:   "Paris",
 		},
 	))
+
 	metrics, _ := pc.IndexMetrics()
 	fmt.Println(metrics)
 

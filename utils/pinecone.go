@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/pinecone-io/go-pinecone/v3/pinecone"
@@ -11,17 +12,23 @@ import (
 
 func (pc *PineconeClient) AddCard(card Flashcard) (bool,error) {
 
-	var records = []*pinecone.IntegratedRecord {
-		&pinecone.IntegratedRecord{
-			"_id" : 	   card.Uuid.String(),
-			"chunk_text" : card.Match,
+	vec,err := MakeOpenAiEmbedRequest(card.Match)
+	if err != nil {
+		return false,fmt.Errorf("error making OpenAI Embed request: %v", err)
+	}
+
+	vectors := []*pinecone.Vector {
+		{
+			Id: 	   card.Uuid.String(),
+			Values:    vec,
 		},
 	}
 
-	err := pc.Index.UpsertRecords(pc.Ctx, records)
+	n,err := pc.Index.UpsertVectors(pc.Ctx, vectors)
 	if err != nil {
 		return false,err
 	}
+	log.Printf("Vectors Upserted: %v", n)
 	
 	return true,nil
 }
@@ -75,6 +82,7 @@ func InitPineconeClient(indexName string) (*PineconeClient,error) {
 	if err != nil {
 		return nil,err
 	}
+	log.Printf("Connected to Pinecone Index: %v", idxModel.Host)
 
 	index,err := client.Index(pinecone.NewIndexConnParams{
 		Host: idxModel.Host,
