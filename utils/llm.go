@@ -76,7 +76,7 @@ func MakeOpenAIChatRequest(messages []Message) (string, error) {
 	return chatResponse.Choices[0].Message.Content, nil
 }
 
-func MakeOpenAiEmbedRequest(text string) (*[]float32,error) {
+func MakeOpenAIEmbedRequest(text string) (*[]float32,error) {
 	
 	reqBody := EmbedRequest{
 		Input: text,

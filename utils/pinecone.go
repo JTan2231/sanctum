@@ -12,7 +12,7 @@ import (
 
 func (pc *PineconeClient) AddCard(card Flashcard) (bool,error) {
 
-	vec,err := MakeOpenAiEmbedRequest(card.Match)
+	vec,err := MakeOpenAIEmbedRequest(card.Match)
 	if err != nil {
 		return false,fmt.Errorf("error making OpenAI Embed request: %v", err)
 	}
@@ -38,9 +38,19 @@ func (pc *PineconeClient) RemoveCard(card Flashcard) (bool,error) {
 	return true,nil
 }
 
-// TODO
-func (pc *PineconeClient) FetchAnswer(card Flashcard) (score float64, grade string) {
-	return 0,""
+func (pc *PineconeClient) FetchAnswer(cardId string) (*[]float32, error) {
+
+	var answerEmbed *[]float32
+
+	vectors,err := pc.Index.FetchVectors(pc.Ctx, []string{ cardId })
+	if err != nil {
+		return nil,nil
+	}
+
+	// Must wait until this vector is upserted (how can we ensure that?)
+	answerEmbed = vectors.Vectors[cardId].Values
+
+	return answerEmbed,nil
 }
 
 func (pc *PineconeClient) IndexMetrics() (IndexMetrics,error) {
