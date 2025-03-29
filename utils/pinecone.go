@@ -44,10 +44,13 @@ func (pc *PineconeClient) FetchAnswer(cardId string) (*[]float32, error) {
 
 	vectors,err := pc.Index.FetchVectors(pc.Ctx, []string{ cardId })
 	if err != nil {
-		return nil,nil
+		return nil,fmt.Errorf("unable to fetch vectors from pinecone: %v", err)
 	}
 
-	// Must wait until this vector is upserted (how can we ensure that?)
+	if len(vectors.Vectors) == 0 {
+		return nil,fmt.Errorf("answer is unavailable, please try again momentarily")
+	}
+
 	answerEmbed = vectors.Vectors[cardId].Values
 
 	return answerEmbed,nil

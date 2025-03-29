@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -19,26 +20,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pc,error := utils.InitPineconeClient("sanctum2")
-	if error != nil {
-		log.Fatalf("Could not initialize pinecone client: %v",err)
-	}
-
-	/*--------------------TESTING---------------------------------------------------*/
-
-	testId := uuid.New()
-	card := utils.Flashcard{
-		Pattern: "What city is the eiffel tower in?",
-		Match:   "Paris",
-		Uuid:    testId,
-	}
-
-	pc.AddCard(card)
-
-	fmt.Println(utils.Grade(pc, testId.String(), "France"))
-
-
-	/*-----------------------------------------------------------------------------------------*/
+	// pc,error := utils.InitPineconeClient("sanctum2")
+	// if error != nil {
+	// 	log.Fatalf("Could not initialize pinecone client: %v",err)
+	// }
 	
 	http.HandleFunc("/auth", middleware.LoggingMiddleware(handlers.AuthHandler))
 	http.HandleFunc("/generate-deck", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.GenerateDeckHandler)))

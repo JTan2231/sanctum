@@ -9,7 +9,7 @@ func Grade(pc *PineconeClient, cardId string, providedAnswer string) (float32, s
 
 	actualAnswerEmbed, err := pc.FetchAnswer(cardId)
 	if err != nil {
-		return 0, "", fmt.Errorf("unable to fetch actual answer of card: %v", err)
+		return 0, "", err
 	}
 
 	providedAnswerEmbed, err := MakeOpenAIEmbedRequest(providedAnswer)
