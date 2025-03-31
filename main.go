@@ -3,15 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
-	"fmt"
-	"time"
-
-	"github.com/google/uuid"
 
 	"sanctum/database"
 	"sanctum/handlers"
 	"sanctum/middleware"
-	"sanctum/utils"
 )
 
 func main() {
@@ -20,10 +15,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// pc,error := utils.InitPineconeClient("sanctum2")
-	// if error != nil {
-	// 	log.Fatalf("Could not initialize pinecone client: %v",err)
-	// }
+	http.HandleFunc("/grade", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.GradeHandler)))
+	http.HandleFunc("/add-card", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.AddCardHandler)))
+	http.Handle("/remove-card", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.RemoveCardHandler)))
 	
 	http.HandleFunc("/auth", middleware.LoggingMiddleware(handlers.AuthHandler))
 	http.HandleFunc("/generate-deck", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.GenerateDeckHandler)))

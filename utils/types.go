@@ -28,6 +28,11 @@ type FlashcardDeck struct {
 	Title string      `json:"title"`
 }
 
+type GradeRequest struct {
+	Uuid 	uuid.UUID `json:"uuid"`
+	Answer  string    `json:"answer"`
+}
+
 /*-----------------------------------------------------*/
 
 type PineconeAPIKey     string

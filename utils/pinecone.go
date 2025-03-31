@@ -10,6 +10,8 @@ import (
 	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 )
 
+const LOGGING = false
+
 func (pc *PineconeClient) AddCard(card Flashcard) (bool,error) {
 
 	vec,err := MakeOpenAIEmbedRequest(card.Match)
@@ -33,9 +35,12 @@ func (pc *PineconeClient) AddCard(card Flashcard) (bool,error) {
 	return true,nil
 }
 
-// TODO
-func (pc *PineconeClient) RemoveCard(card Flashcard) (bool,error) {
-	return true,nil
+func (pc *PineconeClient) RemoveCard(cardId string) (bool,error) {
+	err := pc.Index.DeleteVectorsById(pc.Ctx, []string{ cardId })
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (pc *PineconeClient) FetchAnswer(cardId string) (*[]float32, error) {
@@ -48,7 +53,7 @@ func (pc *PineconeClient) FetchAnswer(cardId string) (*[]float32, error) {
 	}
 
 	if len(vectors.Vectors) == 0 {
-		return nil,fmt.Errorf("answer is unavailable, please try again momentarily")
+		return nil,fmt.Errorf("answer is unavailable, either vector with this id does not exist or this vector is in the process of being inserted")
 	}
 
 	answerEmbed = vectors.Vectors[cardId].Values
@@ -95,7 +100,9 @@ func InitPineconeClient(indexName string) (*PineconeClient,error) {
 	if err != nil {
 		return nil,err
 	}
-	log.Printf("Connected to Pinecone Index: %v", idxModel.Host)
+	if LOGGING {
+		log.Printf("Connected to Pinecone Index: %v", idxModel.Host)
+	}
 
 	index,err := client.Index(pinecone.NewIndexConnParams{
 		Host: idxModel.Host,

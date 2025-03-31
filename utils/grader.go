@@ -17,7 +17,7 @@ func Grade(pc *PineconeClient, cardId string, providedAnswer string) (float32, s
 		return 0,"",fmt.Errorf("unable to embed provided answer: %v", err)
 	}
 
-	// Need to normalize this since its not in range [0,1]
+	// Need to normalize this to the range [0,1]
 	var numericGrade float32 = CosineSimilarity(actualAnswerEmbed,providedAnswerEmbed)
 	var letterGrade  string
 
