@@ -9,10 +9,10 @@ import (
 	"os"
 )
 
-const CHAT_ENDPOINT  string = "https://api.openai.com/v1/chat/completions"
+const CHAT_ENDPOINT string = "https://api.openai.com/v1/chat/completions"
 const EMBED_ENDPOINT string = "https://api.openai.com/v1/embeddings"
 
-func MakeOpenAIRequest[T ChatRequest | EmbedRequest] (reqBody T, endpoint string) (*http.Response,error) {
+func MakeOpenAIRequest[T ChatRequest | EmbedRequest](reqBody T, endpoint string) (*http.Response, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		fmt.Println("OPENAI_API_KEY environment variable not set")
@@ -30,7 +30,7 @@ func MakeOpenAIRequest[T ChatRequest | EmbedRequest] (reqBody T, endpoint string
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer " + apiKey)
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 
 	client := &http.Client{}
 	res, err := client.Do(req)
@@ -42,7 +42,7 @@ func MakeOpenAIRequest[T ChatRequest | EmbedRequest] (reqBody T, endpoint string
 		return nil, fmt.Errorf("api request failed with status: %v", res.StatusCode)
 	}
 
-	return res,nil
+	return res, nil
 }
 
 func MakeOpenAIChatRequest(messages []Message) (string, error) {
@@ -51,20 +51,20 @@ func MakeOpenAIChatRequest(messages []Message) (string, error) {
 		Messages: messages,
 	}
 
-	res,err := MakeOpenAIRequest(reqBody,CHAT_ENDPOINT)
+	res, err := MakeOpenAIRequest(reqBody, CHAT_ENDPOINT)
 	if err != nil {
-		return "",fmt.Errorf("error making request to OpenAI Chat endpoint: %v", err)
+		return "", fmt.Errorf("error making request to OpenAI Chat endpoint: %v", err)
 	}
 
 	defer res.Body.Close()
 
-	body,err := io.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	var chatResponse ChatResponse
-	err = json.Unmarshal(body,&chatResponse)
+	err = json.Unmarshal(body, &chatResponse)
 	if err != nil {
 		return "", fmt.Errorf("error parsing response: %v", err)
 	}
@@ -76,31 +76,31 @@ func MakeOpenAIChatRequest(messages []Message) (string, error) {
 	return chatResponse.Choices[0].Message.Content, nil
 }
 
-func MakeOpenAIEmbedRequest(text string) (*[]float32,error) {
-	
+func MakeOpenAIEmbedRequest(text string) (*[]float32, error) {
+
 	reqBody := EmbedRequest{
 		Input: text,
 		Model: "text-embedding-3-small",
 	}
 
-	res,err := MakeOpenAIRequest(reqBody,EMBED_ENDPOINT)
+	res, err := MakeOpenAIRequest(reqBody, EMBED_ENDPOINT)
 	if err != nil {
-		return nil,fmt.Errorf("error making request to OpenAI Embed endpoint: %v", err)
+		return nil, fmt.Errorf("error making request to OpenAI Embed endpoint: %v", err)
 	}
 
 	defer res.Body.Close()
 
-	body,err := io.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil,fmt.Errorf("error reading bytes from response body: %v", err)
+		return nil, fmt.Errorf("error reading bytes from response body: %v", err)
 	}
 
 	var embedResponse EmbedResponse
-	err = json.Unmarshal(body,&embedResponse)
+	err = json.Unmarshal(body, &embedResponse)
 
 	if err != nil {
 		return nil, fmt.Errorf("error parsing response: %v", err)
 	}
 
-	return &embedResponse.Data[0].Embedding,nil
+	return &embedResponse.Data[0].Embedding, nil
 }

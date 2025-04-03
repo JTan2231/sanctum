@@ -11,8 +11,8 @@ type PromptRequest struct {
 }
 
 type PromptResponse struct {
-	Suggestion string `json:"suggestion,omitempty"`
-	Error      string `json:"error,omitempty"`
+	Suggestion string `json:"suggestion, omitempty"`
+	Error      string `json:"error, omitempty"`
 }
 
 func PromptSuggestionHandler(w http.ResponseWriter, r *http.Request) {

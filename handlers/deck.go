@@ -127,7 +127,7 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	numericGrade,letterGrade,err := utils.Grade(pc,gradeRequest.Uuid.String(),gradeRequest.Answer)
+	numericGrade, err := utils.Grade(pc, gradeRequest.Uuid.String(), gradeRequest.Answer)
 	if err != nil {
 		errMessage := fmt.Sprintf("Error grading answer: %v", err)
 		respondWithError(w, http.StatusInternalServerError, errMessage)
@@ -135,8 +135,7 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, 200, map[string]interface{}{
-		"letterGrade" :  letterGrade,
-		"numericGrade" : numericGrade,
+		"numericGrade": numericGrade,
 	})
 }
 
