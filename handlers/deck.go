@@ -2,28 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+
 	"sanctum/utils"
 )
-
-type DeckRequest struct {
-	Prompt string `json:"prompt"`
-}
-
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
-type Flashcard struct {
-	Pattern string `json:"pattern"`
-	Match   string `json:"match"`
-}
-
-type FlashcardDeck struct {
-	Cards []Flashcard `json:"cards"`
-	Title string      `json:"title"`
-}
 
 const systemPrompt = `You are a helpful study aid that creates flashcard pairs in JSON format. For any topic provided, generate relevant question-answer pairs where "pattern" contains the prompt/question and "match" contains the corresponding answer. Format each flashcard as a JSON object with these exact fields:
 { "pattern": string, "match": string }
@@ -46,10 +31,16 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
-	response := ErrorResponse{Error: message}
+	response := utils.ErrorResponse{Error: message}
 	json.NewEncoder(w).Encode(response)
 
 	log.Println("ERROR: ", response)
+}
+
+func respondWithJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(payload)
 }
 
 func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +49,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req DeckRequest
+	var req utils.DeckRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -86,7 +77,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cards []Flashcard
+	var cards []utils.Flashcard
 	if err := json.Unmarshal([]byte(response), &cards); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error parsing flashcards")
 		return
@@ -97,7 +88,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deck := FlashcardDeck{
+	deck := utils.FlashcardDeck{
 		Cards: cards,
 		Title: req.Prompt,
 	}
@@ -107,4 +98,108 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Error encoding response")
 		return
 	}
+}
+
+func GradeHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	var gradeRequest utils.GradeRequest
+	err = json.Unmarshal(body, &gradeRequest)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	if gradeRequest.Answer == "" {
+		respondWithError(w, http.StatusInternalServerError, "An answer must be provided")
+		return
+	}
+
+	pc, err := utils.InitPineconeClient("sanctum2")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
+		return
+	}
+
+	numericGrade, err := utils.Grade(pc, gradeRequest.Uuid.String(), gradeRequest.Answer)
+	if err != nil {
+		errMessage := fmt.Sprintf("Error grading answer: %v", err)
+		respondWithError(w, http.StatusInternalServerError, errMessage)
+		return
+	}
+
+	respondWithJSON(w, 200, map[string]interface{}{
+		"numericGrade": numericGrade,
+	})
+}
+
+func AddCardHandler(w http.ResponseWriter, r *http.Request) {
+
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	var card utils.Flashcard
+	err = json.Unmarshal(body, &card)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	pc, err := utils.InitPineconeClient("sanctum2")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
+		return
+	}
+
+	_, err = pc.AddCard(card)
+	if err != nil {
+		errMessage := fmt.Sprintf("Error adding card to database: %v", err)
+		respondWithError(w, http.StatusInternalServerError, errMessage)
+		return
+	}
+
+	respondWithJSON(w, 200, map[string]string{"message": "Card added successfully"})
+}
+
+func RemoveCardHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	var card utils.Flashcard
+	err = json.Unmarshal(body, &card)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		return
+	}
+
+	pc, err := utils.InitPineconeClient("sanctum2")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
+		return
+	}
+
+	_, err = pc.RemoveCard(card.Uuid.String())
+	if err != nil {
+		errMessage := fmt.Sprintf("Error removing card: %v", err)
+		respondWithError(w, http.StatusInternalServerError, errMessage)
+		return
+	}
+
+	respondWithJSON(w, 200, map[string]string{"message": "Card removed successfully"})
 }
