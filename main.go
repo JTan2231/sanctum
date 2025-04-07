@@ -18,5 +18,5 @@ func main() {
 	http.HandleFunc("/prompt-suggestion", middleware.LoggingMiddleware(middleware.AuthMiddleware(handlers.PromptSuggestionHandler)))
 
 	log.Println("Server starting on localhost:8080")
-	log.Fatal(http.ListenAndServe("127.0.0.1:8080", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }
