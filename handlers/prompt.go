@@ -69,7 +69,7 @@ Keep suggestions clear, specific, and focused on improving the flashcard learnin
 
 	w.Header().Set("Content-Type", "application/json")
 
-	response, err := utils.MakeOpenAIChatRequest(messages)
+	response, err := utils.MakeOpenAIChatRequest(messages, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(PromptResponse{

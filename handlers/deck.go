@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"sanctum/utils"
 )
@@ -13,7 +14,7 @@ import (
 const systemPrompt = `You are a helpful study aid that creates flashcard pairs in JSON format. For any topic provided, generate relevant question-answer pairs where "pattern" contains the prompt/question and "match" contains the corresponding answer. Format each flashcard as a JSON object with these exact fields:
 { "pattern": string, "match": string }
 
-Return multiple flashcards as an array of these objects. Keep both pattern and match concise - ideally under 15 words each. Ensure the content is accurate and educational. Only respond with the JSON array, no additional text.
+Return multiple flashcards as a plain array of these objects - do not wrap in any additional object. Ensure the content is accurate and educational. Only respond with the JSON array, no additional text.
 
 Example format:
 [
@@ -60,42 +61,120 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages := []utils.Message{
+	targetSize := 20 // Same as bash script
+	var allCards []utils.Flashcard
+
+	// Initial request to generate first set of cards
+	initialMessages := []utils.Message{
 		{
 			Role:    "system",
 			Content: systemPrompt,
 		},
 		{
 			Role:    "user",
-			Content: req.Prompt,
+			Content: fmt.Sprintf("Generate 2-3 flashcards about %s.", req.Prompt),
 		},
 	}
 
-	response, err := utils.MakeOpenAIChatRequest(messages)
+	var initialCards []utils.Flashcard
+
+	response, err := utils.MakeOpenAIChatRequest(initialMessages, utils.GetFlashcardSchema())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error processing request")
+		respondWithError(w, http.StatusInternalServerError, "Error processing initial request")
 		return
 	}
 
-	var cards []utils.Flashcard
-	if err := json.Unmarshal([]byte(response), &cards); err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error parsing flashcards")
+	var rawResponse any
+	if err := json.Unmarshal([]byte(response), &rawResponse); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error parsing initial flashcards")
 		return
 	}
 
-	if len(cards) == 0 {
-		respondWithError(w, http.StatusInternalServerError, "No flashcards generated")
-		return
+	fmt.Printf("Raw response: %+v\n", rawResponse)
+
+	if responseMap, ok := rawResponse.(map[string]any); ok {
+		if cardsRaw, ok := responseMap["cards"].([]any); ok {
+			cardsJSON, err := json.Marshal(cardsRaw)
+			if err != nil {
+				respondWithError(w, http.StatusInternalServerError, "Error re-encoding cards")
+				return
+			}
+
+			if err := json.Unmarshal(cardsJSON, &initialCards); err != nil {
+				respondWithError(w, http.StatusInternalServerError, "Error parsing cards array")
+				return
+			}
+		}
+	}
+
+	allCards = append(allCards, initialCards...)
+
+	for len(allCards) < targetSize {
+		currentDeckJSON, err := json.Marshal(allCards)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Error encoding current deck")
+			return
+		}
+
+		expansionPrompt := fmt.Sprintf(`Here is my current deck of flashcards:
+
+%s
+
+Please generate 2-3 additional flashcards that expand the knowledge covered by this deck. Focus on related but new concepts.`, string(currentDeckJSON))
+
+		messages := []utils.Message{
+			{
+				Role:    "system",
+				Content: systemPrompt,
+			},
+			{
+				Role:    "user",
+				Content: expansionPrompt,
+			},
+		}
+
+		response, err := utils.MakeOpenAIChatRequest(messages, utils.GetFlashcardSchema())
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Error processing expansion request")
+			return
+		}
+
+		var rawResponse any
+		if err := json.Unmarshal([]byte(response), &rawResponse); err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Error parsing initial flashcards")
+			return
+		}
+
+		if responseMap, ok := rawResponse.(map[string]any); ok {
+			if cardsRaw, ok := responseMap["cards"].([]any); ok {
+				cardsJSON, err := json.Marshal(cardsRaw)
+				if err != nil {
+					respondWithError(w, http.StatusInternalServerError, "Error re-encoding cards")
+					return
+				}
+
+				if err := json.Unmarshal(cardsJSON, &initialCards); err != nil {
+					respondWithError(w, http.StatusInternalServerError, "Error parsing cards array")
+					return
+				}
+			}
+		}
+
+		allCards = append(allCards, initialCards...)
+
+		fmt.Printf("%d of %d cards...", len(allCards), targetSize)
+
+		time.Sleep(time.Second / 5)
 	}
 
 	deck := utils.FlashcardDeck{
-		Cards: cards,
+		Cards: allCards,
 		Title: req.Prompt,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(deck); err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error encoding response")
+		respondWithError(w, http.StatusInternalServerError, "Error encoding final response")
 		return
 	}
 }
@@ -134,7 +213,7 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, 200, map[string]interface{}{
+	respondWithJSON(w, 200, map[string]any{
 		"numericGrade": numericGrade,
 	})
 }

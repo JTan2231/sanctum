@@ -18,9 +18,9 @@ type ErrorResponse struct {
 }
 
 type Flashcard struct {
-	Pattern string     `json:"pattern"`
-	Match   string     `json:"match"`
-	Uuid    uuid.UUID  `json:"uuid"` 
+	Pattern string    `json:"pattern"`
+	Match   string    `json:"match"`
+	Uuid    uuid.UUID `json:"uuid"`
 }
 
 type FlashcardDeck struct {
@@ -29,24 +29,24 @@ type FlashcardDeck struct {
 }
 
 type GradeRequest struct {
-	Uuid 	uuid.UUID `json:"uuid"`
-	Answer  string    `json:"answer"`
+	Uuid   uuid.UUID `json:"uuid"`
+	Answer string    `json:"answer"`
 }
 
 /*-----------------------------------------------------*/
 
-type PineconeAPIKey     string
-type PineconeNameSpace  string
+type PineconeAPIKey string
+type PineconeNameSpace string
 
 type PineconeClient struct {
-	Ctx  	   context.Context
-	Client     *pinecone.Client
-	Index      *pinecone.IndexConnection
+	Ctx    context.Context
+	Client *pinecone.Client
+	Index  *pinecone.IndexConnection
 }
 
 type IndexMetrics struct {
-	VectorCount  int
-	Dimension    int
+	VectorCount int
+	Dimension   int
 }
 
 /*-----------------------------------------------------*/
@@ -62,29 +62,40 @@ type Choice struct {
 	} `json:"message"`
 }
 
+type ResponseFormat struct {
+	Type       string         `json:"type"`
+	JSONSchema JSONSchemaSpec `json:"json_schema"`
+}
+
+type JSONSchemaSpec struct {
+	Name   string         `json:"name"`
+	Schema map[string]any `json:"schema"`
+}
+
 type ChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
+	Model          string          `json:"model"`
+	Messages       []Message       `json:"messages"`
+	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
 }
 
 type ChatResponse struct {
-	Choices  []Choice `json:"choices"`
+	Choices []Choice `json:"choices"`
 }
 
 type EmbedRequest struct {
-	Input    string `json:"input"`
-	Model    string `json:"model"`
+	Input string `json:"input"`
+	Model string `json:"model"`
 }
 
 type EmbedResponse struct {
-	Data     []EmbedData `json:"data"`
+	Data []EmbedData `json:"data"`
 }
 
 type EmbedData struct {
-	Object    string     `json:"object"`
-	Index     int        `json:"index"`
-	Embedding []float32  `json:"embedding"`
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
+	Embedding []float32 `json:"embedding"`
 }
 
-
 /*-----------------------------------------------------*/
+

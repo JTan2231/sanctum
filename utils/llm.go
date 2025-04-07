@@ -45,10 +45,39 @@ func MakeOpenAIRequest[T ChatRequest | EmbedRequest](reqBody T, endpoint string)
 	return res, nil
 }
 
-func MakeOpenAIChatRequest(messages []Message) (string, error) {
+func GetFlashcardSchema() *ResponseFormat {
+	return &ResponseFormat{
+		Type: "json_schema",
+		JSONSchema: JSONSchemaSpec{
+			Name: "flashcards",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"cards": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"pattern": map[string]any{"type": "string"},
+								"match":   map[string]any{"type": "string"},
+							},
+							"required":             []string{"pattern", "match"},
+							"additionalProperties": false,
+						},
+					},
+				},
+				"required":             []string{"cards"},
+				"additionalProperties": false,
+			},
+		},
+	}
+}
+
+func MakeOpenAIChatRequest(messages []Message, responseFormat *ResponseFormat) (string, error) {
 	reqBody := ChatRequest{
-		Model:    "gpt-4o",
-		Messages: messages,
+		Model:          "gpt-4o",
+		Messages:       messages,
+		ResponseFormat: responseFormat,
 	}
 
 	res, err := MakeOpenAIRequest(reqBody, CHAT_ENDPOINT)
