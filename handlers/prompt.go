@@ -11,8 +11,8 @@ type PromptRequest struct {
 }
 
 type PromptResponse struct {
-	Suggestion string `json:"suggestion, omitempty"`
-	Error      string `json:"error, omitempty"`
+	EnhancedPrompt string `json:"enhancedPrompt,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 func PromptSuggestionHandler(w http.ResponseWriter, r *http.Request) {
@@ -35,31 +35,23 @@ func PromptSuggestionHandler(w http.ResponseWriter, r *http.Request) {
 	messages := []utils.Message{
 		{
 			Role: "system",
-			Content: `You are a helpful study aid assistant that analyzes topic requests and suggests ways to make better flashcards. When given a topic, provide specific suggestions for how to refine or expand the request to generate more effective study materials.
+			Content: `You are an AI assistant that enhances study prompts to create more effective flashcard content. 
+Your task is to take the user's input prompt and expand it into a more detailed, comprehensive version.
 
-Consider aspects like:
-- Scope and specificity of the topic
-- Key subtopics that might be valuable to include
-- Different angles of study (definitions, applications, examples, etc.)
-- Level of detail needed
-- Common areas students often miss
-- Ways to break down complex topics
+Consider:
+- Adding specific subtopics
+- Including relevant terminology
+- Expanding scope where beneficial
+- Adding context and related concepts
+- Ensuring appropriate detail level
+- Breaking down complex topics into manageable parts
 
-Return suggestions as a JSON array where each suggestion is an object with a "suggestion" field. Format must be:
-[
-  {"suggestion": string},
-  {"suggestion": string},
-  ...
-]
+Respond with ONLY the enhanced prompt text. Do not include explanations or metadata.
+The enhanced prompt should be a direct replacement for the original, ready to use for flashcard creation.
 
-Example format:
-[
-  {"suggestion": "Specify which historical period of Ancient Rome you want to focus on"},
-  {"suggestion": "Include both theoretical concepts and practical applications of calculus"},
-  {"suggestion": "Break down 'biology' into specific systems: circulatory, respiratory, etc."}
-]
-
-Keep suggestions clear, specific, and focused on improving the flashcard learning experience. Only respond with the JSON array, no additional text.`,
+Example:
+Input: "Ancient Rome"
+Output: "Ancient Rome (753 BCE - 476 CE), including: political structure (Republic and Empire), key historical figures, major battles, social classes, cultural developments, architectural achievements, and the factors leading to its rise and fall"`,
 		},
 		{
 			Role:    "user",
@@ -79,6 +71,6 @@ Keep suggestions clear, specific, and focused on improving the flashcard learnin
 	}
 
 	json.NewEncoder(w).Encode(PromptResponse{
-		Suggestion: response,
+		EnhancedPrompt: response,
 	})
 }

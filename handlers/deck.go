@@ -107,6 +107,16 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TODO: I think at some point we'll want to do something like parallelize this to speed things along
+	//       I don't think the embeddings have any dependencies except the cards to which they're directly linked
+	for _, card := range initialCards {
+		err = addCardToPinecone(card)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
+			return
+		}
+	}
+
 	allCards = append(allCards, initialCards...)
 
 	for len(allCards) < targetSize {
@@ -160,8 +170,19 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 			}
 		}
 
+		// TODO: The error handling here needs to be more robust
+		//       probably something like having a local backlog of un-indexed cards
+		for _, card := range initialCards {
+			err = addCardToPinecone(card)
+			if err != nil {
+				respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
+				return
+			}
+		}
+
 		allCards = append(allCards, initialCards...)
 
+		// TODO: I think eventually we'll want this to be some sort of keep-alive
 		fmt.Printf("%d of %d cards...", len(allCards), targetSize)
 
 		time.Sleep(time.Second / 5)
@@ -218,6 +239,20 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func addCardToPinecone(card utils.Flashcard) error {
+	pc, err := utils.InitPineconeClient("sanctum2")
+	if err != nil {
+		return err
+	}
+
+	_, err = pc.AddCard(card)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func AddCardHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
@@ -231,20 +266,13 @@ func AddCardHandler(w http.ResponseWriter, r *http.Request) {
 	var card utils.Flashcard
 	err = json.Unmarshal(body, &card)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error decoding request")
+		respondWithError(w, http.StatusInternalServerError, "Error unmarshaling request")
 		return
 	}
 
-	pc, err := utils.InitPineconeClient("sanctum2")
+	err = addCardToPinecone(card)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
-		return
-	}
-
-	_, err = pc.AddCard(card)
-	if err != nil {
-		errMessage := fmt.Sprintf("Error adding card to database: %v", err)
-		respondWithError(w, http.StatusInternalServerError, errMessage)
+		respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
 		return
 	}
 
