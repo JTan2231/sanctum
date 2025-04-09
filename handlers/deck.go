@@ -46,6 +46,9 @@ func respondWithJSON(w http.ResponseWriter, status int, payload interface{}) {
 	json.NewEncoder(w).Encode(payload)
 }
 
+// TODO: This needs to be either:
+//   - Faster, or
+//   - Shwoing some indication of progress to the user
 func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -63,7 +66,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetSize := 3
+	targetSize := 20
 	var allCards []utils.Flashcard
 
 	// Initial request to generate first set of cards
