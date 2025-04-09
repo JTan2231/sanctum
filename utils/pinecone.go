@@ -12,6 +12,8 @@ import (
 
 const LOGGING = false
 
+const PINECONE_NAMESPACE = "sanctum-grading"
+
 func (pc *PineconeClient) AddCard(card Flashcard) (bool, error) {
 
 	vec, err := MakeOpenAIEmbedRequest(card.Match)
@@ -21,7 +23,7 @@ func (pc *PineconeClient) AddCard(card Flashcard) (bool, error) {
 
 	vectors := []*pinecone.Vector{
 		{
-			Id:     card.Uuid.String(),
+			Id:     card.Uuid,
 			Values: vec,
 		},
 	}
@@ -44,7 +46,6 @@ func (pc *PineconeClient) RemoveCard(cardId string) (bool, error) {
 }
 
 func (pc *PineconeClient) FetchAnswer(cardId string) (*[]float32, error) {
-
 	var answerEmbed *[]float32
 
 	vectors, err := pc.Index.FetchVectors(pc.Ctx, []string{cardId})
@@ -84,9 +85,9 @@ func InitPineconeClient(indexName string) (*PineconeClient, error) {
 
 	ctx := context.Background()
 
-	API_KEY := os.Getenv("PINECONE_KEY")
+	API_KEY := os.Getenv("PINECONE_API_KEY")
 	if API_KEY == "" {
-		return nil, errors.New("API Key environment variable not found")
+		return nil, errors.New("PINECONE_KEY environment variable not found")
 	}
 
 	client, err := pinecone.NewClient(pinecone.NewClientParams{

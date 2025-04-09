@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"sanctum/utils"
 )
 
@@ -61,7 +63,7 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targetSize := 20 // Same as bash script
+	targetSize := 3
 	var allCards []utils.Flashcard
 
 	// Initial request to generate first set of cards
@@ -90,8 +92,6 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Raw response: %+v\n", rawResponse)
-
 	if responseMap, ok := rawResponse.(map[string]any); ok {
 		if cardsRaw, ok := responseMap["cards"].([]any); ok {
 			cardsJSON, err := json.Marshal(cardsRaw)
@@ -109,9 +109,11 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: I think at some point we'll want to do something like parallelize this to speed things along
 	//       I don't think the embeddings have any dependencies except the cards to which they're directly linked
-	for _, card := range initialCards {
-		err = addCardToPinecone(card)
+	for i := range initialCards {
+		initialCards[i].Uuid = uuid.New().String()
+		err = addCardToPinecone(initialCards[i])
 		if err != nil {
+			log.Println("Error adding initial cards to Pinecone:", err)
 			respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
 			return
 		}
@@ -172,9 +174,11 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 
 		// TODO: The error handling here needs to be more robust
 		//       probably something like having a local backlog of un-indexed cards
-		for _, card := range initialCards {
-			err = addCardToPinecone(card)
+		for i := range initialCards {
+			initialCards[i].Uuid = uuid.New().String()
+			err = addCardToPinecone(initialCards[i])
 			if err != nil {
+				log.Println("Error adding new cards to Pinecone:", err)
 				respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
 				return
 			}
@@ -193,6 +197,8 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 		Title: req.Prompt,
 	}
 
+	log.Println("Returning deck:", deck)
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(deck); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error encoding final response")
@@ -201,6 +207,11 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 }
 
 func GradeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
@@ -216,18 +227,20 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("grading with body:", gradeRequest)
+
 	if gradeRequest.Answer == "" {
 		respondWithError(w, http.StatusInternalServerError, "An answer must be provided")
 		return
 	}
 
-	pc, err := utils.InitPineconeClient("sanctum2")
+	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
 		return
 	}
 
-	numericGrade, err := utils.Grade(pc, gradeRequest.Uuid.String(), gradeRequest.Answer)
+	numericGrade, err := utils.Grade(pc, gradeRequest.Uuid, gradeRequest.Answer)
 	if err != nil {
 		errMessage := fmt.Sprintf("Error grading answer: %v", err)
 		respondWithError(w, http.StatusInternalServerError, errMessage)
@@ -240,7 +253,11 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func addCardToPinecone(card utils.Flashcard) error {
-	pc, err := utils.InitPineconeClient("sanctum2")
+	if card.Uuid == "" {
+		return fmt.Errorf("flashcard UUID is not set")
+	}
+
+	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
 	if err != nil {
 		return err
 	}
@@ -254,7 +271,6 @@ func addCardToPinecone(card utils.Flashcard) error {
 }
 
 func AddCardHandler(w http.ResponseWriter, r *http.Request) {
-
 	defer r.Body.Close()
 
 	body, err := io.ReadAll(r.Body)
@@ -270,8 +286,11 @@ func AddCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	card.Uuid = uuid.New().String()
+
 	err = addCardToPinecone(card)
 	if err != nil {
+		log.Println("Error adding card to Pinecone:", err)
 		respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
 		return
 	}
@@ -295,13 +314,13 @@ func RemoveCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pc, err := utils.InitPineconeClient("sanctum2")
+	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
 		return
 	}
 
-	_, err = pc.RemoveCard(card.Uuid.String())
+	_, err = pc.RemoveCard(card.Uuid)
 	if err != nil {
 		errMessage := fmt.Sprintf("Error removing card: %v", err)
 		respondWithError(w, http.StatusInternalServerError, errMessage)

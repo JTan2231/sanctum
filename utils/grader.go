@@ -5,8 +5,7 @@ import (
 	"math"
 )
 
-func Grade(pc *PineconeClient, cardId string, providedAnswer string) (float32 , error) {
-
+func Grade(pc *PineconeClient, cardId string, providedAnswer string) (float32, error) {
 	actualAnswerEmbed, err := pc.FetchAnswer(cardId)
 	if err != nil {
 		return 0, err

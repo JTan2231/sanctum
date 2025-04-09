@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 )
 
@@ -18,9 +17,9 @@ type ErrorResponse struct {
 }
 
 type Flashcard struct {
-	Pattern string    `json:"pattern"`
-	Match   string    `json:"match"`
-	Uuid    uuid.UUID `json:"uuid"`
+	Pattern string `json:"pattern"`
+	Match   string `json:"match"`
+	Uuid    string `json:"uuid"`
 }
 
 type FlashcardDeck struct {
@@ -29,8 +28,8 @@ type FlashcardDeck struct {
 }
 
 type GradeRequest struct {
-	Uuid   uuid.UUID `json:"uuid"`
-	Answer string    `json:"answer"`
+	Uuid   string `json:"uuid"`
+	Answer string `json:"answer"`
 }
 
 /*-----------------------------------------------------*/
@@ -98,4 +97,3 @@ type EmbedData struct {
 }
 
 /*-----------------------------------------------------*/
-
