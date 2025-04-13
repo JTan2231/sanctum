@@ -82,8 +82,8 @@ type ChatResponse struct {
 }
 
 type EmbedRequest struct {
-	Input string `json:"input"`
-	Model string `json:"model"`
+	Input []string `json:"input"`
+	Model string   `json:"model"`
 }
 
 type EmbedResponse struct {

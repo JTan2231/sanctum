@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/pinecone-io/go-pinecone/v3/pinecone"
 )
@@ -14,18 +15,29 @@ const LOGGING = false
 
 const PINECONE_NAMESPACE = "sanctum-grading"
 
-func (pc *PineconeClient) AddCard(card Flashcard) (bool, error) {
+var (
+	instance *PineconeClient
+	once     sync.Once
+	mu       sync.Mutex
+)
 
-	vec, err := MakeOpenAIEmbedRequest(card.Match)
+func (pc *PineconeClient) AddCards(cards []Flashcard) (bool, error) {
+	matches := []string{}
+	for _, card := range cards {
+		matches = append(matches, card.Match)
+	}
+
+	embeddings, err := MakeOpenAIEmbedRequest(matches)
 	if err != nil {
 		return false, fmt.Errorf("error making OpenAI Embed request: %v", err)
 	}
 
-	vectors := []*pinecone.Vector{
-		{
-			Id:     card.Uuid,
-			Values: vec,
-		},
+	vectors := []*pinecone.Vector{}
+	for i, embedding := range *embeddings {
+		vectors = append(vectors, &pinecone.Vector{
+			Id:     cards[i].Uuid,
+			Values: &embedding.Embedding,
+		})
 	}
 
 	n, err := pc.Index.UpsertVectors(pc.Ctx, vectors)
@@ -81,8 +93,7 @@ func (indexMetric IndexMetrics) String() string {
 	return fmt.Sprintf("Vector Count: %v \n Dimension: %v", indexMetric.VectorCount, indexMetric.Dimension)
 }
 
-func InitPineconeClient(indexName string) (*PineconeClient, error) {
-
+func InitPineconeClient() (*PineconeClient, error) {
 	ctx := context.Background()
 
 	API_KEY := os.Getenv("PINECONE_API_KEY")
@@ -93,14 +104,16 @@ func InitPineconeClient(indexName string) (*PineconeClient, error) {
 	client, err := pinecone.NewClient(pinecone.NewClientParams{
 		ApiKey: API_KEY,
 	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	idxModel, err := client.DescribeIndex(ctx, indexName)
+	idxModel, err := client.DescribeIndex(ctx, PINECONE_NAMESPACE)
 	if err != nil {
 		return nil, err
 	}
+
 	if LOGGING {
 		log.Printf("Connected to Pinecone Index: %v", idxModel.Host)
 	}
@@ -109,6 +122,7 @@ func InitPineconeClient(indexName string) (*PineconeClient, error) {
 		Host:      idxModel.Host,
 		Namespace: "flashcards",
 	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -120,4 +134,28 @@ func InitPineconeClient(indexName string) (*PineconeClient, error) {
 	}
 
 	return pc, nil
+}
+
+func GetPineconeClient() (*PineconeClient, error) {
+	if instance != nil {
+		return instance, nil
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if instance != nil {
+		return instance, nil
+	}
+
+	var err error
+	once.Do(func() {
+		instance, err = InitPineconeClient()
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }

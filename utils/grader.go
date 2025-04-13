@@ -11,12 +11,12 @@ func Grade(pc *PineconeClient, cardId string, providedAnswer string) (float32, e
 		return 0, err
 	}
 
-	providedAnswerEmbed, err := MakeOpenAIEmbedRequest(providedAnswer)
+	providedAnswerEmbed, err := MakeOpenAIEmbedRequest([]string{providedAnswer})
 	if err != nil {
 		return 0, fmt.Errorf("unable to embed provided answer: %v", err)
 	}
 
-	var numericGrade float32 = CosineSimilarity(actualAnswerEmbed, providedAnswerEmbed)
+	var numericGrade float32 = CosineSimilarity(actualAnswerEmbed, &(*providedAnswerEmbed)[0].Embedding)
 
 	return numericGrade, nil
 }

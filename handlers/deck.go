@@ -46,10 +46,31 @@ func respondWithJSON(w http.ResponseWriter, status int, payload interface{}) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-// TODO: This needs to be either:
-//   - Faster, or
-//   - Shwoing some indication of progress to the user
+// TODO: Retry logic, error handling, etc.
 func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "Streaming unsupported")
+		return
+	}
+
+	// Helper function to send SSE updates
+	sendUpdate := func(eventType string, data interface{}) {
+		update, err := json.Marshal(data)
+		if err != nil {
+			log.Printf("Error marshaling update: %v", err)
+			return
+		}
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, update)
+		flusher.Flush()
+	}
+
 	if r.Method != http.MethodPost {
 		respondWithError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -66,8 +87,14 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: This needs to be configurable somehow
 	targetSize := 20
 	var allCards []utils.Flashcard
+
+	sendUpdate("status", map[string]interface{}{
+		"message":  "Starting generation...",
+		"progress": 1,
+	})
 
 	// Initial request to generate first set of cards
 	initialMessages := []utils.Message{
@@ -114,15 +141,21 @@ func GenerateDeckHandler(w http.ResponseWriter, r *http.Request) {
 	//       I don't think the embeddings have any dependencies except the cards to which they're directly linked
 	for i := range initialCards {
 		initialCards[i].Uuid = uuid.New().String()
-		err = addCardToPinecone(initialCards[i])
-		if err != nil {
-			log.Println("Error adding initial cards to Pinecone:", err)
-			respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
-			return
-		}
+	}
+
+	err = addCardsToPinecone(initialCards)
+	if err != nil {
+		log.Println("Error adding initial cards to Pinecone:", err)
+		respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
+		return
 	}
 
 	allCards = append(allCards, initialCards...)
+
+	sendUpdate("status", map[string]interface{}{
+		"message":  "Initial cards generated",
+		"progress": float64(len(allCards)) / float64(targetSize) * 100,
+	})
 
 	for len(allCards) < targetSize {
 		currentDeckJSON, err := json.Marshal(allCards)
@@ -179,18 +212,24 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 		//       probably something like having a local backlog of un-indexed cards
 		for i := range initialCards {
 			initialCards[i].Uuid = uuid.New().String()
-			err = addCardToPinecone(initialCards[i])
-			if err != nil {
-				log.Println("Error adding new cards to Pinecone:", err)
-				respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
-				return
-			}
+		}
+
+		err = addCardsToPinecone(initialCards)
+		if err != nil {
+			log.Println("Error adding new cards to Pinecone:", err)
+			respondWithError(w, http.StatusInternalServerError, "Error adding cards to Pinecone")
+			return
 		}
 
 		allCards = append(allCards, initialCards...)
 
 		// TODO: I think eventually we'll want this to be some sort of keep-alive
 		fmt.Printf("%d of %d cards...", len(allCards), targetSize)
+
+		sendUpdate("status", map[string]interface{}{
+			"message":  "Initial cards generated",
+			"progress": float64(len(allCards)) / float64(targetSize) * 100,
+		})
 
 		time.Sleep(time.Second / 5)
 	}
@@ -200,7 +239,16 @@ Please generate 2-3 additional flashcards that expand the knowledge covered by t
 		Title: req.Prompt,
 	}
 
-	log.Println("Returning deck:", deck)
+	log.Println("Returning deck")
+
+	sendUpdate("complete", map[string]interface{}{
+		"message":  "Deck generation complete",
+		"progress": 100,
+		"deck": utils.FlashcardDeck{
+			Cards: allCards,
+			Title: req.Prompt,
+		},
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(deck); err != nil {
@@ -237,7 +285,7 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
+	pc, err := utils.GetPineconeClient()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
 		return
@@ -255,17 +303,19 @@ func GradeHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func addCardToPinecone(card utils.Flashcard) error {
-	if card.Uuid == "" {
-		return fmt.Errorf("flashcard UUID is not set")
+func addCardsToPinecone(cards []utils.Flashcard) error {
+	for _, card := range cards {
+		if card.Uuid == "" {
+			return fmt.Errorf("Flashcard UUID is not set")
+		}
 	}
 
-	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
+	pc, err := utils.GetPineconeClient()
 	if err != nil {
 		return err
 	}
 
-	_, err = pc.AddCard(card)
+	_, err = pc.AddCards(cards)
 	if err != nil {
 		return err
 	}
@@ -291,7 +341,7 @@ func AddCardHandler(w http.ResponseWriter, r *http.Request) {
 
 	card.Uuid = uuid.New().String()
 
-	err = addCardToPinecone(card)
+	err = addCardsToPinecone([]utils.Flashcard{card})
 	if err != nil {
 		log.Println("Error adding card to Pinecone:", err)
 		respondWithError(w, http.StatusInternalServerError, "Error adding card to Pinecone")
@@ -317,7 +367,7 @@ func RemoveCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pc, err := utils.InitPineconeClient(utils.PINECONE_NAMESPACE)
+	pc, err := utils.GetPineconeClient()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error connecting to pinecone client")
 		return

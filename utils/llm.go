@@ -105,8 +105,8 @@ func MakeOpenAIChatRequest(messages []Message, responseFormat *ResponseFormat) (
 	return chatResponse.Choices[0].Message.Content, nil
 }
 
-func MakeOpenAIEmbedRequest(text string) (*[]float32, error) {
-
+// NOTE: This needs to be guaranteed to return the embeddings in order as they were input
+func MakeOpenAIEmbedRequest(text []string) (*[]EmbedData, error) {
 	reqBody := EmbedRequest{
 		Input: text,
 		Model: "text-embedding-3-small",
@@ -131,5 +131,5 @@ func MakeOpenAIEmbedRequest(text string) (*[]float32, error) {
 		return nil, fmt.Errorf("error parsing response: %v", err)
 	}
 
-	return &embedResponse.Data[0].Embedding, nil
+	return &embedResponse.Data, nil
 }
